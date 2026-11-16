@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>夜市搜尋</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#e8590c">
+<style>
+:root{--bg:#fff8f0;--card:#fff;--fg:#2b2118;--mut:#8a7867;--ac:#e8590c;--ok:#2f9e44;--no:#c92a2a;--bd:#f0e0cf}
+@media (prefers-color-scheme:dark){:root{--bg:#1a1410;--card:#262019;--fg:#f5ebe0;--mut:#a89684;--ac:#ff922b;--ok:#69db7c;--no:#ff8787;--bd:#3a3026}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 "Microsoft JhengHei",system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+h1{margin:4px 0 12px;font-size:24px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text]{flex:1;min-width:200px;padding:11px 12px;font-size:16px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--fg)}
+button{padding:11px 16px;font-size:15px;border:0;border-radius:10px;background:var(--ac);color:#fff;cursor:pointer}
+button.sec{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.chip{padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--card);cursor:pointer;font-size:13px}
+.chip:hover{border-color:var(--ac)}
+#msg{margin:10px 0;color:var(--mut)}
+#map{height:340px;border-radius:12px;margin:8px 0 12px}
+.item{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin:8px 0;display:flex;gap:12px;align-items:flex-start;cursor:pointer}
+.item .n{font-weight:700;font-size:17px}
+.item .d{color:var(--mut);font-size:13px}
+.item .dist{margin-left:auto;text-align:right;white-space:nowrap;font-weight:700;color:var(--ac)}
+.badge{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;margin-left:6px;border:1px solid currentColor}
+.on{color:var(--ok)}.off{color:var(--no)}
+a{color:var(--ac)}
+#pk{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin:8px 0;display:none}
+#pk h2{font-size:17px;margin:0 0 6px}#pk h3{font-size:14px;margin:12px 0 4px;color:var(--mut)}
+.lot{border-top:1px solid var(--bd);padding:8px 0}.lot:first-of-type{border-top:0}
+.lot .n{font-weight:700}.lot .pr{color:var(--ac);font-size:14px}
+.foot{color:var(--mut);font-size:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>🏮 夜市搜尋</h1>
+<div class="row">
+  <input id="q" type="text" placeholder="輸入地址（找最近夜市）或縣市名稱（如：台南、高雄市）" autocomplete="off">
+  <button id="go">搜尋</button>
+  <button id="loc" class="sec">📍 我的位置</button>
+</div>
+<div class="chips" id="chips"></div>
+<div id="msg"></div>
+<div id="gl" style="margin:6px 0"></div>
+<div id="map"></div>
+<div id="pk"></div>
+<div id="list"></div>
+<div class="foot">地圖、地址定位、導航與評論使用 Google 地圖（Maps JavaScript API／Geocoding API；若 API 無法使用會自動改用免金鑰的嵌入地圖與 OpenStreetMap 定位）；夜市座標與營業時間為一般常態資料，各攤實際時間、公休日與天氣因素可能不同，出發前請再確認。</div>
+</div>
+<script src="parking.js"></script>
+<script src="parking-tdx.js" onerror="void 0"></script>
+<script>
+// [名稱, 縣市, 區域, 緯度, 經度, 開, 關, 營業星期(省略=每天)]
+const M=[
+["士林夜市","臺北市","士林區",25.0879,121.5243,"16:00","24:00"],
+["寧夏夜市","臺北市","大同區",25.0566,121.5154,"17:00","24:00"],
+["饒河街觀光夜市","臺北市","松山區",25.0509,121.5775,"16:00","24:00"],
+["華西街夜市","臺北市","萬華區",25.0374,121.4990,"17:00","24:00"],
+["臨江街(通化)夜市","臺北市","大安區",25.0305,121.5546,"18:00","24:00"],
+["師大夜市","臺北市","大安區",25.0262,121.5287,"17:00","24:00"],
+["公館夜市","臺北市","大安區",25.0147,121.5340,"16:00","24:00"],
+["景美夜市","臺北市","文山區",24.9930,121.5400,"17:00","24:00"],
+["南機場夜市","臺北市","萬華區",25.0278,121.5030,"17:00","24:00"],
+["雙城街夜市","臺北市","中山區",25.0630,121.5230,"17:00","24:00"],
+["樂華夜市","新北市","永和區",25.0087,121.5120,"17:00","24:00"],
+["湳雅夜市","新北市","板橋區",25.0232,121.4638,"17:00","25:00"],
+["蘆洲湧蓮寺廟口夜市","新北市","蘆洲區",25.0868,121.4732,"17:00","24:00"],
+["淡水老街","新北市","淡水區",25.1678,121.4400,"10:00","22:00"],
+["新莊廟街夜市","新北市","新莊區",25.0359,121.4310,"17:00","24:00"],
+["三和夜市","新北市","三重區",25.0716,121.4880,"17:00","24:00"],
+["基隆廟口夜市","基隆市","仁愛區",25.1288,121.7437,"12:00","24:00"],
+["中壢觀光夜市","桃園市","中壢區",24.9548,121.2160,"17:00","24:00"],
+["南平夜市","桃園市","桃園區",24.9937,121.3077,"17:00","24:00"],
+["新竹城隍廟夜市","新竹市","北區",24.8043,120.9667,"11:00","22:00"],
+["逢甲夜市","臺中市","西屯區",24.1790,120.6460,"17:00","25:00"],
+["一中街夜市","臺中市","北區",24.1495,120.6850,"11:00","24:00"],
+["忠孝夜市","臺中市","東區",24.1380,120.6950,"17:00","24:00"],
+["豐原廟東夜市","臺中市","豐原區",24.2514,120.7203,"17:00","24:00"],
+["嘉義文化路夜市","嘉義市","東區",23.4840,120.4560,"17:00","24:00"],
+["花園夜市","臺南市","北區",23.0090,120.2090,"18:00","25:00",[4,6,0]],
+["大東夜市","臺南市","東區",22.9820,120.2330,"17:00","25:00"],
+["武聖夜市","臺南市","中西區",22.9900,120.1990,"18:00","25:00"],
+["小北夜市","臺南市","北區",23.0160,120.2150,"17:00","24:00"],
+["六合觀光夜市","高雄市","新興區",22.6311,120.3020,"17:00","26:00"],
+["瑞豐夜市","高雄市","左營區",22.6660,120.3000,"18:00","24:00"],
+["光華夜市","高雄市","苓雅區",22.6360,120.3190,"17:00","25:00"],
+["屏東觀光夜市","屏東縣","屏東市",22.6640,120.4890,"17:00","24:00"],
+["羅東夜市","宜蘭縣","羅東鎮",24.6784,121.7710,"17:00","24:00"],
+["宜蘭東門夜市","宜蘭縣","宜蘭市",24.7541,121.7595,"17:00","24:00"],
+["花蓮東大門夜市","花蓮縣","花蓮市",23.9792,121.6118,"17:00","23:30"],
+["臺東觀光夜市","臺東縣","臺東市",22.7550,121.1490,"18:00","24:00"],
+];
+const CITIES=["基隆市","臺北市","新北市","桃園市","新竹市","新竹縣","苗栗縣","臺中市","彰化縣","南投縣","雲林縣","嘉義市","嘉義縣","臺南市","高雄市","屏東縣","宜蘭縣","花蓮縣","臺東縣","澎湖縣","金門縣","連江縣"];
+const $=id=>document.getElementById(id);
+const norm=s=>s.replace(/台/g,"臺").replace(/\s+/g,"");
+const hm=s=>{const [h,m]=s.split(":").map(Number);return h*60+m};
+const fmt=s=>{let [h,m]=s.split(":").map(Number);const nx=h>=24;h%=24;return (nx?"次日 ":"")+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")};
+const DAYN="日一二三四五六";
+
+function status(m,now=new Date()){
+  const o=hm(m[5]),c=hm(m[6]),days=m[7];
+  const t=now.getHours()*60+now.getMinutes(),d=now.getDay(),yd=(d+6)%7;
+  const okDay=x=>!days||days.includes(x);
+  if(okDay(d)&&t>=o&&t<c) return {open:true,txt:"營業中"};
+  if(c>1440&&okDay(yd)&&t<c-1440) return {open:true,txt:"營業中"};
+  if(days&&!okDay(d)) return {open:false,txt:"今日休息"};
+  return {open:false,txt:t<o?"尚未營業":"已打烊"};
+}
+function hoursText(m){
+  return fmt(m[5])+" – "+fmt(m[6])+(m[7]?"（僅週"+m[7].map(x=>DAYN[x]).join("、")+"）":"（每日）");
+}
+function dist(a,b,c,d){
+  const R=6371,r=Math.PI/180,dl=(c-a)*r,dg=(d-b)*r;
+  const x=Math.sin(dl/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dg/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+
+const GM="https://www.google.com/maps";
+const GKEY="AIzaSyAfdkBzgxSWCzG45MLL6gKA5yqxXZifji8";
+let G=null,gmap,ginfo,gmarks=[],last={rows:[],origin:null};
+const embed=(q,z)=>`https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=${z||15}&hl=zh-TW&output=embed`;
+function showMap(src){ // 備援：嵌入式 Google 地圖（Maps JavaScript API 無法使用時）
+  let f=$("map").querySelector("iframe");
+  if(!f){$("map").innerHTML='<iframe style="width:100%;height:100%;border:0" loading="lazy"></iframe>';f=$("map").firstChild;}
+  f.src=src;
+}
+function initG(){
+  G=true;
+  gmap=new google.maps.Map($("map"),{center:{lat:23.7,lng:121},zoom:7,mapTypeControl:false,streetViewControl:false});
+  ginfo=new google.maps.InfoWindow();
+  drawMap();
+  if(last.rows.length)showParking(last.rows[0].m);
+}
+window.gm_authFailure=()=>{G=false;$("map").innerHTML="";drawMap();};
+(function(){
+  const s=document.createElement("script");
+  s.src=`https://maps.googleapis.com/maps/api/js?key=${GKEY}&language=zh-TW&region=TW&callback=initG`;
+  s.async=true;s.onerror=()=>{G=false;drawMap();};
+  document.head.appendChild(s);
+})();
+function popup(m){const st=status(m);return `<b>${m[0]}</b><br>${m[1]}${m[2]}<br>🕔 ${hoursText(m)}<br>${st.txt}`;}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let pmarks=[],pkSeq=0;
+async function showParking(m){
+  const seq=++pkSeq,box=$("pk");
+  pmarks.forEach(k=>k.setMap(null));pmarks=[];
+  const R=600;
+  const allPK=[...(typeof PK!=="undefined"?PK:[]),...(typeof PK2!=="undefined"?PK2:[])];
+  const local=allPK.map(p=>({p,d:dist(m[3],m[4],p.la,p.lo)*1000})).filter(x=>x.d<=R).sort((a,b)=>a.d-b.d).slice(0,8);
+  let h=`<h2>🅿️ ${esc(m[0])} 附近停車場</h2>`;
+  if(local.length){
+    h+=`<h3>官方公布資料（含收費說明；臺北市為市府 ${esc(PK_UPDATED)} 快照，其他縣市為交通部 TDX）</h3>`;
+    local.forEach(({p,d})=>{
+      h+=`<div class="lot"><div class="n">${esc(p.n)} <span class="d">約 ${Math.round(d)} 公尺${p.c?"・汽車 "+p.c+" 格":""}</span></div>
+        <div class="d">${esc(p.ad)}${p.st?"　🕔 "+esc(p.st.replace(/:00(?=-|$)/g,"")):""}</div>
+        <div class="pr">💰 ${esc(p.pr||"收費資訊請洽現場")}</div>
+        <div class="d"><a target="_blank" rel="noopener" href="${GM}/dir/?api=1&destination=${p.la},${p.lo}&travelmode=driving">導航到此</a></div></div>`;
+    });
+  }
+  h+=`<h3 id="pkg">Google 地圖搜尋到的附近停車場</h3><div id="pkgl" class="d">搜尋中…</div>
+      <div class="d" style="margin-top:6px">Google 不提供停車費資料；收費請點「Google 地圖」連結查看或洽現場。${local.length?"":"此夜市附近沒有官方收費資料。"}</div>`;
+  box.innerHTML=h;box.style.display="block";
+  const out=()=>$("pkgl");
+  if(G!==true){out()&&(out().innerHTML=`<a target="_blank" rel="noopener" href="${GM}/search/${encodeURIComponent("停車場")}/@${m[3]},${m[4]},17z">在 Google 地圖查看附近停車場</a>`);return;}
+  try{
+    const {Place}=await google.maps.importLibrary("places");
+    const {places}=await Place.searchNearby({
+      fields:["displayName","location","formattedAddress","rating","userRatingCount","googleMapsURI"],
+      locationRestriction:{center:{lat:m[3],lng:m[4]},radius:R},
+      includedPrimaryTypes:["parking"],maxResultCount:10,language:"zh-TW",region:"tw"});
+    if(seq!==pkSeq)return;
+    if(!places.length){out().textContent="Google 沒有找到附近停車場。";return;}
+    out().innerHTML=places.map((p,i)=>{
+      const lat=p.location.lat(),lng=p.location.lng();
+      const mk=new google.maps.Marker({map:gmap,position:p.location,title:p.displayName,label:"P",
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:11,fillColor:"#2f9e44",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});
+      mk.addListener("click",()=>{ginfo.setContent(`<b>${esc(p.displayName)}</b><br>${esc(p.formattedAddress||"")}`);ginfo.open(gmap,mk);});
+      pmarks.push(mk);
+      return `<div class="lot"><div class="n">${esc(p.displayName)} <span class="d">約 ${Math.round(dist(m[3],m[4],lat,lng)*1000)} 公尺${p.rating?`・⭐${p.rating}（${p.userRatingCount||0}）`:""}</span></div>
+        <div class="d">${esc(p.formattedAddress||"")}</div>
+        <div class="d"><a target="_blank" rel="noopener" href="${p.googleMapsURI||GM+"/search/?api=1&query="+lat+","+lng}">Google 地圖（看收費／評論）</a></div></div>`;
+    }).join("");
+  }catch(e){
+    if(seq===pkSeq&&out())out().innerHTML=`無法使用 Places API（請確認專案已啟用 <b>Places API (New)</b>）。<a target="_blank" rel="noopener" href="${GM}/search/${encodeURIComponent("停車場")}/@${m[3]},${m[4]},17z">改在 Google 地圖查看</a>`;
+  }
+}
+function focusMarket(m){
+  showParking(m);
+  if(G===true){
+    const mk=gmarks.find(k=>k._m===m);
+    gmap.setZoom(16);gmap.panTo({lat:m[3],lng:m[4]});
+    if(mk){ginfo.setContent(popup(m));ginfo.open(gmap,mk);}
+  }else showMap(embed(m[0]+" "+m[1]+m[2],16));
+  $("map").scrollIntoView({behavior:"smooth",block:"center"});
+}
+function drawMap(){
+  const {rows,origin}=last;
+  if(G===true){
+    gmarks.forEach(k=>k.setMap(null));gmarks=[];
+    const b=new google.maps.LatLngBounds();
+    rows.forEach(({m},i)=>{
+      const mk=new google.maps.Marker({map:gmap,position:{lat:m[3],lng:m[4]},title:m[0],label:String(i+1)});
+      mk._m=m;mk.addListener("click",()=>{ginfo.setContent(popup(m));ginfo.open(gmap,mk);});
+      gmarks.push(mk);b.extend(mk.getPosition());
+    });
+    if(origin){
+      const o=new google.maps.Marker({map:gmap,position:{lat:origin[0],lng:origin[1]},title:"你的位置",
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#1971c2",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});
+      gmarks.push(o);b.extend(o.getPosition());
+    }
+    if(gmarks.length){gmap.fitBounds(b,40);google.maps.event.addListenerOnce(gmap,"idle",()=>{if(gmap.getZoom()>15)gmap.setZoom(15);});}
+  }else if(G===false&&rows.length){
+    const f=rows[0].m;
+    showMap(origin?embed(`${f[0]} ${f[1]}${f[2]}`,14):embed(`夜市 ${f[1]}`,12));
+  }
+}
+function render(rows,origin){
+  const list=$("list");list.innerHTML="";
+  rows.forEach(({m,km})=>{
+    const st=status(m);
+    const el=document.createElement("div");el.className="item";
+    const dest=encodeURIComponent(m[0]+" "+m[1]+m[2]);
+    const dir=`${GM}/dir/?api=1&destination=${dest}${origin?"&origin="+origin[0]+","+origin[1]:""}&travelmode=driving`;
+    const place=`${GM}/search/?api=1&query=${dest}`;
+    el.innerHTML=`<div><div class="n">${m[0]}<span class="badge ${st.open?"on":"off"}">${st.txt}</span></div>
+      <div class="d">${m[1]}${m[2]}</div>
+      <div class="d">🕔 ${hoursText(m)}</div>
+      <div class="d"><a href="${dir}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Google 地圖導航</a> ・ <a href="${place}" target="_blank" rel="noopener" onclick="event.stopPropagation()">查看 Google 評論與即時營業時間</a></div></div>
+      ${km!=null?`<div class="dist">${km.toFixed(1)} km<div class="d">開車約 ${Math.max(1,Math.round(km/25*60))} 分</div></div>`:""}`;
+    el.onclick=()=>focusMarket(m);
+    list.appendChild(el);
+  });
+  last={rows,origin};drawMap();
+  if(rows.length)showParking(rows[0].m);else $("pk").style.display="none";
+}
+function gLinks(html){$("gl").innerHTML=html;}
+function byCity(c){
+  $("q").value=c;
+  gLinks(`<a href="${GM}/search/${encodeURIComponent(c+" 夜市")}" target="_blank" rel="noopener">🔎 在 Google 地圖搜尋「${c} 夜市」</a>`);
+  const rows=M.filter(m=>m[1]===c).map(m=>({m,km:null}));
+  $("msg").textContent=rows.length?`${c}共 ${rows.length} 個夜市`:`資料庫中暫無 ${c} 的夜市`;
+  render(rows,null);
+}
+function nearest(lat,lng,label){
+  const rows=M.map(m=>({m,km:dist(lat,lng,m[3],m[4])})).sort((a,b)=>a.km-b.km).slice(0,8);
+  $("msg").textContent=`${label} 附近最近的夜市（共列出 ${rows.length} 個）`;
+  render(rows,[lat,lng]);
+  gLinks(`<a href="${GM}/search/夜市/@${lat},${lng},14z" target="_blank" rel="noopener">🔎 在 Google 地圖搜尋此處附近的夜市（含即時營業時間）</a>`);
+}
+async function geocode(q){
+  q=q.replace(/^\d{3,6}/,"");
+  const tries=[q,q.replace(/\d+樓.*$/,"").replace(/之?\d*號.*$/,""),q.replace(/[\d一二三四五六七八九十]+(巷|弄|號).*$/,"")];
+  for(const t of [...new Set(tries)].filter(Boolean)){
+    if(G===true){
+      try{
+        const r=await new google.maps.Geocoder().geocode({address:t,region:"TW",componentRestrictions:{country:"TW"}});
+        if(r.results&&r.results.length){const p=r.results[0].geometry.location;return {lat:p.lat(),lng:p.lng(),name:r.results[0].formatted_address};}
+      }catch(e){}
+    }
+    try{
+      const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&accept-language=zh-TW&q="+encodeURIComponent(t));
+      const j=await r.json();
+      if(j.length)return {lat:+j[0].lat,lng:+j[0].lon,name:j[0].display_name};
+    }catch(e){}
+  }
+  return null;
+}
+async function search(){
+  const raw=$("q").value.trim();if(!raw)return;
+  const q=norm(raw);
+  const city=CITIES.find(c=>c===q||c.slice(0,-1)===q);
+  if(city)return byCity(city);
+  const byName=M.filter(m=>m[0].includes(raw)||m[0].includes(q));
+  if(byName.length&&q.length>=2&&!/[路街段巷弄號]/.test(q)){
+    $("msg").textContent=`符合「${raw}」的夜市`;return render(byName.map(m=>({m,km:null})),null);
+  }
+  $("msg").textContent="定位中…";
+  const g=await geocode(raw);
+  if(g)return nearest(g.lat,g.lng,raw);
+  const c2=CITIES.find(c=>q.includes(c)||q.includes(c.slice(0,-1)));
+  if(c2){$("msg").textContent=`找不到該地址，改顯示 ${c2} 的夜市`;return byCity(c2);}
+  $("msg").textContent="找不到這個地址，請試試加上縣市與路名，或直接輸入縣市名稱。";
+}
+$("go").onclick=search;
+$("q").addEventListener("keydown",e=>{if(e.key==="Enter")search()});
+$("loc").onclick=()=>{
+  if(!navigator.geolocation)return $("msg").textContent="此瀏覽器不支援定位";
+  $("msg").textContent="取得位置中…";
+  navigator.geolocation.getCurrentPosition(p=>nearest(p.coords.latitude,p.coords.longitude,"你的位置"),
+    ()=>$("msg").textContent="無法取得位置，請改輸入地址",{timeout:10000});
+};
+const used=[...new Set(M.map(m=>m[1]))];
+CITIES.filter(c=>used.includes(c)).forEach(c=>{
+  const b=document.createElement("span");b.className="chip";b.textContent=c;b.onclick=()=>byCity(c);$("chips").appendChild(b);
+});
+if(location.protocol==="http:"){ // 讓 start.bat 的本機伺服器知道頁面還開著，關閉後自動結束
+  const ping=()=>fetch("/ping",{cache:"no-store"}).catch(()=>{});
+  ping();setInterval(ping,5000);
+  addEventListener("pagehide",()=>{try{navigator.sendBeacon("/bye")}catch(e){}});
+}
+if("serviceWorker" in navigator&&(location.protocol==="https:")){navigator.serviceWorker.register("sw.js").catch(()=>{});}
+const qs=new URLSearchParams(location.search).get("q");
+if(qs){$("q").value=qs;search();}else{$("msg").textContent="輸入地址找最近夜市，或點選縣市瀏覽。";}
+</script>
+</body>
+</html>
