@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>夜市搜尋</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#e8590c">
 <style>
 :root{--bg:#fff8f0;--card:#fff;--fg:#2b2118;--mut:#8a7867;--ac:#e8590c;--ok:#2f9e44;--no:#c92a2a;--bd:#f0e0cf}
 @media (prefers-color-scheme:dark){:root{--bg:#1a1410;--card:#262019;--fg:#f5ebe0;--mut:#a89684;--ac:#ff922b;--ok:#69db7c;--no:#ff8787;--bd:#3a3026}}
@@ -301,6 +304,7 @@ if(location.protocol==="http:"){ // 讓 start.bat 的本機伺服器知道頁面
   ping();setInterval(ping,5000);
   addEventListener("pagehide",()=>{try{navigator.sendBeacon("/bye")}catch(e){}});
 }
+if("serviceWorker" in navigator&&(location.protocol==="https:")){navigator.serviceWorker.register("sw.js").catch(()=>{});}
 const qs=new URLSearchParams(location.search).get("q");
 if(qs){$("q").value=qs;search();}else{$("msg").textContent="輸入地址找最近夜市，或點選縣市瀏覽。";}
 </script>
