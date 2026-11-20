@@ -8,9 +8,14 @@
   帳號申請：https://tdx.transportdata.tw/ （免費，註冊後到「會員中心 > 資料服務 > API金鑰」取得）
 #>
 $ErrorActionPreference = 'Stop'
-if (-not $env:TDX_ID -or -not $env:TDX_SECRET) { Write-Error '請先設定環境變數 TDX_ID 與 TDX_SECRET'; exit 1 }
+if (-not $env:TDX_ID) { $env:TDX_ID = (Read-Host 'TDX Client Id').Trim() }
+if (-not $env:TDX_SECRET) {
+  $sec = Read-Host 'TDX Client Secret（輸入時不會顯示）' -AsSecureString
+  $env:TDX_SECRET = ([Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))).Trim()
+}
+if (-not $env:TDX_ID -or -not $env:TDX_SECRET) { Write-Error '需要 Client Id 與 Client Secret'; exit 1 }
 $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$html = [System.IO.File]::ReadAllText("$dir\index.html", [Text.Encoding]::UTF8)
+$html = [System.IO.File]::ReadAllText("$dir\NightMarket.html", [Text.Encoding]::UTF8)
 
 # 夜市（排除已有臺北市政府資料的臺北市）
 $mk = @()

@@ -1,6 +1,6 @@
 // 網路優先；離線時回到快取的頁面外殼（Google 地圖與 API 請求不經過這裡）
 const C = "nightmarket-v1";
-const FILES = ["./", "./index.html", "./parking.js", "./manifest.webmanifest", "./icon.svg"];
+const FILES = ["./", "./NightMarket.html", "./parking.js", "./manifest.webmanifest", "./icon.svg"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(C).then(c => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener("fetch", e => {

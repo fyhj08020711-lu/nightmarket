@@ -12,7 +12,7 @@ echo NightMarket is running at: http://localhost:%PORT%/
 echo Make sure your Google API key website restriction includes: http://localhost:%PORT%/*
 echo This window closes automatically after you close the web page.
 echo.
-start "" "http://localhost:%PORT%/index.html"
+start "" "http://localhost:%PORT%/NightMarket.html"
 %PY% server.py %PORT%
 exit /b 0
 
